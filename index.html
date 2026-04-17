@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ajyal Secure Exam System</title>
+    <style>
+        :root {
+            --primary: #667eea; --secondary: #764ba2; --success: #4caf50;
+            --warning: #ff9800; --danger: #f44336; --bg: #f5f7fa; --card: #ffffff;
+            --text: #333333; --text-light: #666666;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh; padding: 20px; }
+        .container { max-width: 750px; margin: 0 auto; background: var(--card); border-radius: 16px; padding: 30px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+        .hidden { display: none !important; }
+        h1 { font-size: 1.8rem; margin-bottom: 8px; } .sub { color: var(--text-light); margin-bottom: 24px; }
+        .input-group { margin-bottom: 16px; } label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.95rem; }
+        input, select { width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 1rem; }
+        input:focus { outline: none; border-color: var(--primary); }
+        button { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 12px; transition: transform 0.1s; }
+        button:active { transform: scale(0.98); }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-primary { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .warning-box { background: #fff8e1; border-left: 4px solid var(--warning); padding: 12px; border-radius: 8px; margin: 16px 0; font-size: 0.9rem; }
+        .error-msg { background: #ffebee; border-left: 4px solid var(--danger); color: #c62828; padding: 12px; border-radius: 8px; margin: 16px 0; display: none; font-weight: 600; }
+        .error-msg.show { display: block; animation: shake 0.4s; }
+        .link-box { background: #f8f9fa; padding: 12px; border-radius: 8px; word-break: break-all; font-family: monospace; margin: 15px 0; border: 1px dashed #ccc; }
+        .step-indicator { display: flex; justify-content: space-between; margin-bottom: 20px; padding: 0 5px; flex-wrap: wrap; gap: 5px; }
+        .step { width: 19%; text-align: center; font-size: 0.8rem; color: #aaa; position: relative; min-width: 70px; }
+        .step.active { color: var(--primary); font-weight: 600; }
+        .step::after { content: ''; position: absolute; top: 12px; left: 50%; width: 100%; height: 2px; background: #e0e0e0; z-index: -1; }
+        .step:last-child::after { display: none; }
+        .step.active::after { background: var(--primary); }
+        
+        .camera-overlay { position: fixed; bottom: 20px; right: 20px; width: 180px; height: 135px; background: #000; border-radius: 12px; border: 3px solid var(--success); overflow: hidden; z-index: 1500; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .camera-overlay.active { display: block; }
+        .camera-overlay video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        .camera-label { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.6); color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+        
+        .exam-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; z-index: 2000; display: none; flex-direction: column; }
+        .exam-screen.active { display: flex; }
+        .exam-top-bar { background: #1e293b; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; color: white; font-size: 0.9rem; flex-wrap: wrap; gap: 10px; }
+        .exam-content { flex: 1; position: relative; overflow: hidden; background: #fff; display: flex; }
+        .exam-iframe-container { flex: 1; display: flex; flex-direction: column; }
+        .exam-iframe-container iframe { width: 100%; height: 100%; border: none; display: block; }
+        .meet-container { 
+            width: 320px; 
+            background: #000; 
+            border-left: 4px solid var(--danger); 
+            position: relative;
+            min-width: 280px;
+        }
+        .meet-container iframe { 
+            width: 100%; 
+            height: 100%; 
+            border: none;
+            pointer-events: auto;
+        }
+        .meet-label {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: rgba(244, 67, 54, 0.9);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .loading-spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .help-overlay, .violation-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 3000; display: none; flex-direction: column; align-items: center; justify-content: center; color: white; text-align: center; padding: 20px; }
+        .help-overlay.active, .violation-overlay.active { display: flex; }
+        .countdown { font-size: 4rem; font-weight: 800; margin: 20px 0; }
+        .help-countdown { color: var(--success); }
+        .violation-countdown { color: var(--warning); }
+        
+        .status-bar { position: fixed; top: 0; left: 0; width: 100%; background: #1e293b; color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; font-size: 0.9rem; display: none; flex-wrap: wrap; gap: 10px; }
+        .status-bar.active { display: flex; }
+        .timer { font-family: monospace; font-size: 1.2rem; color: #4caf50; font-weight: bold; background: rgba(76, 175, 80, 0.2); padding: 4px 12px; border-radius: 6px; }
+        .violation-badge { background: rgba(255, 152, 0, 0.2); color: var(--warning); padding: 4px 12px; border-radius: 6px; font-weight: 600; }
+        
+        .footer-link { text-align: center; margin-top: 30px; font-size: 0.85rem; color: #aaa; cursor: pointer; }
+        .instructions-box { background: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; border-radius: 8px; margin: 15px 0; font-size: 0.95rem; }
+        .instructions-box ul { margin-left: 20px; margin-top: 8px; }
+        .instructions-box li { margin-bottom: 6px; }
+        .student-info-display { background: #f0f0f0; padding: 12px; border-radius: 8px; margin: 15px 0; }
+        .student-info-display p { margin: 5px 0; font-size: 0.95rem; }
+        .student-info-display strong { color: var(--primary); }
+        
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+        
+        @media (max-width: 1024px) {
+            .exam-content { flex-direction: column; }
+            .meet-container { 
+                width: 100%; 
+                height: 220px; 
+                border-left: none; 
+                border-top: 4px solid var(--danger);
+                min-width: auto;
+            }
+            .meet-label { top: 8px; left: 8px; font-size: 12px; padding: 5px 10px; }
+        }
+        
+        @media (max-width: 600px) {
+            .container { padding: 20px; } 
+            h1 { font-size: 1.5rem; }
+            .camera-overlay { width: 140px; height: 105px; bottom: 15px; right: 15px; }
+            .step { width: 32%; margin-bottom: 5px; } 
+            .step::after { display: none; }
+            .meet-container { height: 180px; }
+        }
+        
+        .meet-container { display: flex !important; flex-direction: column !important; }
+        .meet-error {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(244, 67, 54, 0.95); color: white; padding: 15px; border-radius: 8px;
+            text-align: center; font-size: 14px; display: none; z-index: 20;
+        }
+    </style>
+</head>
+<body>
+
+<div id="statusBar" class="status-bar">
+    <span id="studentDisplay">Student</span>
+    <span class="timer" id="examTimer">00:00</span>
+    <span class="violation-badge" id="violationDisplay">⚠️ Violations: 0</span>
+</div>
+
+<div class="container" id="startPage">
+    <h1>🔒 Ajyal Secure Exam System</h1>
+    <p class="sub">Select your role to continue</p>
+    <div style="display: grid; gap: 15px; margin-top: 30px;">
+        <button class="btn-primary" onclick="showTeacherPanel()">👨‍🏫 Teacher / Admin Panel</button>
+        <button class="btn-success" onclick="showStudentPanel()">👨‍🎓 Student Exam Portal</button>
+    </div>
+    <div class="footer-link" onclick="showTeacherPanel()">🔐 Admin Access</div>
+</div>
+
+<div class="container hidden" id="teacherPanel">
+    <div id="teacherInstructions" class="hidden">
+        <h1>📋 Teacher Instructions</h1>
+        <p class="sub">Please read carefully before configuring the exam</p>
+        <div class="instructions-box">
+            <strong>📢 What to tell students BEFORE exam:</strong>
+            <ul>
+                <li>Use <strong>Google Chrome</strong> on iPad/Laptop</li>
+                <li><strong>iPad Users:</strong> Go to Settings → Chrome → Cookies → Enable "Allow All Cookies"</li>
+                <li>Log into Chrome with your <strong>school email</strong> beforehand</li>
+                <li>Join the Google Meet link first, keep camera ON</li>
+                <li>Each student can only attempt the exam <strong>once</strong></li>
+                <li>During exam: Do NOT switch tabs/apps. Use 💡 button if you need help</li>
+                <li><strong>Google Meet is MANDATORY and cannot be hidden during the exam</strong></li>
+            </ul>
+        </div>
+        <button class="btn-primary" onclick="showTeacherSettings()">✓ I Understand → Go to Settings</button>
+    </div>
+
+    <div id="teacherSettings" class="hidden">
+        <h1>⚙️ Exam Configuration</h1>
+        <p class="sub">Set up your secure exam parameters</p>
+        
+        <div class="input-group">
+            <label>🔑 Department Login</label>
+            <select id="departmentSelect">
+                <option value="">Select Department</option>
+                <option value="science@ajya1">Science</option>
+                <option value="math@ajya1">Math</option>
+                <option value="English@ajya1">English</option>
+                <option value="Arabic@ajya1">Arabic</option>
+                <option value="computer science@ajya1">Computer Science</option>
+                <option value="General1@ajya1">General 1</option>
+                <option value="General2@ajya1">General 2</option>
+                <option value="General3@ajya1">General 3</option>
+                <option value="General4@ajya1">General 4</option>
+                <option value="General5@ajya1">General 5</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label>🔐 Department Password</label>
+            <input type="password" id="departmentPassword" placeholder="Enter department password">
+        </div>
+        <button id="adminLoginBtn" class="btn-primary">🔓 Login</button>
+        <p id="adminLoginError" class="error-msg">Incorrect password. Please select correct department.</p>
+
+        <div id="settingsForm" class="hidden">
+            <div class="input-group"><label>📝 Exam Title</label><input type="text" id="admTitle" value="Physics Term 3 Quiz"></div>
+            <div class="input-group"><label>📹 Google Meet Link (MANDATORY)</label><input type="url" id="admMeet" placeholder="https://meet.google.com/xxx-xxxx-xxx"></div>
+            <div class="input-group"><label>📋 Exam Link</label><input type="url" id="admForm" placeholder="https://docs.google.com/forms/d/e/..."></div>
+            <div class="input-group"><label>⏱️ Duration (minutes)</label><input type="number" id="admDuration" value="45" min="1"></div>
+            <div class="input-group"><label>⚠️ Max Violations Before Termination</label><input type="number" id="admMaxViolations" value="3" min="1"></div>
+            
+            <button id="generateLinkBtn" class="btn-success">🔗 Generate & Copy Student Link</button>
+            <div id="linkResult" class="hidden">
+                <p style="font-weight:600; margin-top:15px;">✅ Share this exact link with students:</p>
+                <div class="link-box" id="studentLinkBox"></div>
+                <button id="copyLinkBtn" class="btn-primary">📋 Copy to Clipboard</button>
+                
+                <div style="margin-top: 25px; padding-top: 20px; border-top: 2px dashed #ddd;">
+                    <label style="color: var(--danger); font-weight:600;">🔄 Unblock Student (Reset Attempt)</label>
+                    <input type="email" id="resetEmailInput" placeholder="Enter student email (e.g., 3731@ajyalfalah.sch.ae)" style="border-color: var(--danger); margin-bottom:10px;">
+                    <button id="resetStudentBtn" class="btn-warning">🚫 Unblock Student</button>
+                    <p id="resetMsg" style="font-size: 0.85rem; margin-top: 10px; display: none; white-space: pre-line;"></p>
+                </div>
+
+                <button class="btn-secondary" onclick="clearAllAttempts()" style="margin-top:10px;">🗑️ Clear ALL Student Attempts (Reset Exam)</button>
+            </div>
+        </div>
+        <button class="btn-secondary" onclick="backToStart()" style="margin-top:20px;">← Back to Start</button>
+    </div>
+</div>
+
+<div class="container hidden" id="studentPanel">
+    <div class="step-indicator">
+        <div class="step active" id="step1Ind">1. Details</div>
+        <div class="step" id="step2Ind">2. Meet</div>
+        <div class="step" id="step3Ind">3. Rules</div>
+        <div class="step" id="step4Ind">4. Camera</div>
+        <div class="step" id="step5Ind">5. Exam</div>
+    </div>
+
+    <div id="errorMsg" class="error-msg"></div>
+
+    <div id="step1">
+        <h1>📝 Step 1: Enter Your Details</h1>
+        <p class="sub">All fields are required. Use your school email.</p>
+        <div class="input-group"><label>👤 Full Name</label><input type="text" id="studentName" placeholder="e.g., Ahmed Mohamed Ali"></div>
+        <div class="input-group"><label>📧 School Email</label><input type="email" id="studentEmail" placeholder="student@ajyalfalah.sch.ae"></div>
+        <div class="input-group"><label>🎓 Grade/Class</label><input type="text" id="studentGrade" placeholder="e.g., Grade 10A"></div>
+        <div class="warning-box">⚠️ You can only attempt this exam <strong>once</strong>. Make sure your details are correct.</div>
+        <button id="toStep2Btn" class="btn-primary">➡️ Next: Join Meeting</button>
+    </div>
+
+    <div id="step2" class="hidden">
+        <div class="student-info-display">
+            <p><strong>Name:</strong> <span id="displayName"></span></p>
+            <p><strong>Email:</strong> <span id="displayEmail"></span></p>
+            <p><strong>Grade:</strong> <span id="displayGrade"></span></p>
+        </div>
+        <h1>📹 Step 2: Join Proctoring Meeting</h1>
+        <p class="sub">Join the Google Meet with your camera ON</p>
+        <div class="warning-box">⚠️ Keep this tab open. You will return here after joining Meet.</div>
+        <button id="joinMeetBtn" class="btn-primary">🔗 Join Google Meet Now</button>
+        <div id="meetConfirm" class="hidden" style="margin-top:15px; text-align:center;">
+            <p style="color:var(--success); font-weight:bold;">✓ Meeting opened successfully!</p>
+            <button id="toStep3Btn" class="btn-success">➡️ Next: Read Instructions</button>
+        </div>
+    </div>
+
+    <div id="step3" class="hidden">
+        <h1>📖 Step 3: Exam Rules</h1>
+        <p class="sub">Read carefully to avoid technical issues</p>
+        <div class="instructions-box">
+            <strong>✅ iPad Setup (CRITICAL):</strong>
+            <ul>
+                <li>Open iPad <strong>Settings</strong> app</li>
+                <li>Scroll down to <strong>Chrome</strong></li>
+                <li>Tap <strong>Cookies</strong></li>
+                <li>Select <strong>"Allow All Cookies"</strong></li>
+                <li>Return to Chrome and continue</li>
+            </ul>
+            <strong>✅ Browser Setup:</strong>
+            <ul>
+                <li>Use <strong>Google Chrome</strong> (not Safari)</li>
+                <li>Log into Chrome with your <strong>school email</strong> before starting</li>
+            </ul>
+            <strong>🔒 Exam Rules:</strong>
+            <ul>
+                <li>This exam allows <strong>only ONE attempt</strong> per student</li>
+                <li>Do NOT switch tabs, apps, or minimize the browser</li>
+                <li>Camera must remain ON and visible at all times</li>
+                <li><strong>Google Meet is MANDATORY and will be visible throughout the exam</strong></li>
+                <li>Use the 💡 One Hint button if you need to ask the teacher (120s grace, ONE TIME ONLY)</li>
+                <li>Maximum <span id="maxViolationsDisplay">3</span> violations allowed</li>
+                <li>You can click anywhere inside the exam page freely. Violations only trigger if you leave the exam.</li>
+            </ul>
+        </div>
+        <button id="toStep4Btn" class="btn-primary">✓ I Understand → Enable Camera</button>
+    </div>
+
+    <div id="step4" class="hidden">
+        <h1>📷 Step 4: Enable Camera</h1>
+        <p class="sub">Your camera will be embedded in the exam screen</p>
+        <div id="cameraPreview" style="width:100%; height:200px; background:#000; border-radius:12px; margin:15px 0; display:flex; align-items:center; justify-content:center; color:white;">
+            Camera preview will appear here
+        </div>
+        <button id="enableCameraBtn" class="btn-primary">📷 Allow Camera Access</button>
+        <p id="cameraStatus" style="text-align:center; margin-top:10px; font-weight:600; display:none;"></p>
+        <button id="toStep5Btn" class="btn-success hidden">✅ Camera Ready → Start Exam</button>
+    </div>
+
+    <div id="step5" class="hidden">
+        <h1>🔒 Step 5: Start Secure Exam</h1>
+        <p class="sub">This will start your exam timer and lock the screen</p>
+        <div class="warning-box">⚠️ Once you click below:<br>• Timer starts<br>• Screen locks (Fullscreen required)<br>• Camera activates<br>• <strong>Google Meet is MANDATORY and visible</strong><br>• You cannot exit until submission</div>
+        <button id="startExamBtn" class="btn-warning">🚀 Start Exam Now</button>
+        <button class="btn-secondary" onclick="backToStart()" style="margin-top:15px;">← Cancel & Exit</button>
+    </div>
+</div>
+
+<div id="examScreen" class="exam-screen">
+    <div class="exam-top-bar">
+        <span id="examStudentName">Student</span>
+        <span class="timer" id="examTimerBar">00:00</span>
+        <span class="violation-badge" id="examViolationBadge">⚠️ Violations: 0/3</span>
+    </div>
+    <div class="exam-content" id="examContent">
+        <div class="exam-iframe-container">
+            <div id="quizContainer" style="flex:1; display:flex; align-items:center; justify-content:center;">
+                <div class="loading-spinner"></div>
+            </div>
+        </div>
+        <div class="meet-container" id="meetContainer">
+            <div class="meet-label">📹 MANDATORY MEET</div>
+            <iframe id="meetIframe" src="" allow="camera; microphone; fullscreen; autoplay" style="width:100%; height:100%; border:none;"></iframe>
+            <div class="meet-error" id="meetError">⚠️ Meet loading...<br><small>Please wait</small></div>
+        </div>
+    </div>
+    
+    <button id="hintBtn" style="position:fixed; bottom:70px; left:15px; background:var(--danger); color:white; padding:8px 15px; border-radius:8px; font-weight:600; z-index:2500; border:none; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.2); font-size:0.85rem; width:auto;">
+        💡 One Hint
+    </button>
+
+    <button id="submitExamBtn" class="btn-success" style="position:fixed; bottom:15px; left:15px; width:auto; padding:8px 15px; font-size:0.85rem; z-index:2500; box-shadow:0 2px 8px rgba(0,0,0,0.2); display:none;">
+        ✓ Submit
+    </button>
+</div>
+
+<div id="cameraOverlay" class="camera-overlay">
+    <div class="camera-label">📷 Live</div>
+    <video id="examCameraVideo" autoplay muted playsinline></video>
+</div>
+
+<div id="helpOverlay" class="help-overlay">
+    <h2>💡 One Hint Activated</h2>
+    <p>Your timer is <strong>paused</strong>. Ask your teacher via Google Meet.</p>
+    <div class="countdown help-countdown" id="helpCountdown">120</div>
+    <p>Return to this tab and tap anywhere to resume. Exceeding 120s ends the exam.</p>
+    <button id="resumeBtn" class="btn-success" style="margin-top:20px; width:auto; padding:12px 30px;">✓ I'm Back</button>
+</div>
+
+<div id="violationOverlay" class="violation-overlay">
+    <h2>⚠️ VIOLATION DETECTED</h2>
+    <p id="violationMsg">You left the exam screen.</p>
+    <div class="countdown violation-countdown" id="violationCountdown">5</div>
+    <p>Return immediately.</p>
+</div>
+
+<script>
+    const DEPARTMENT_PASSWORDS = {
+        "science@ajya1": "science@ajya1", "math@ajya1": "math@ajya1", "English@ajya1": "English@ajya1",
+        "Arabic@ajya1": "Arabic@ajya1", "computer science@ajya1": "computer science@ajya1",
+        "General1@ajya1": "General1@ajya1", "General2@ajya1": "General2@ajya1", "General3@ajya1": "General3@ajya1",
+        "General4@ajya1": "General4@ajya1", "General5@ajya1": "General5@ajya1"
+    };
+    
+    let config = { title: "Secure Exam", meet: "", form: "", duration: 45, maxViolations: 3, domain: "@ajyalfalah.sch.ae" };
+    let examActive = false, helpMode = false, violations = 0, timerInterval = null, helpInterval = null;
+    let startTime = 0, elapsedBeforePause = 0, meetOpened = false, cameraStream = null;
+    let studentData = { name: "", email: "", grade: "" };
+    let currentDepartment = "", hintUsed = false;
+    const isIPad = /iPad|iPhone/.test(navigator.userAgent);
+
+    const startPage = document.getElementById('startPage');
+    const teacherPanel = document.getElementById('teacherPanel');
+    const studentPanel = document.getElementById('studentPanel');
+    const examScreen = document.getElementById('examScreen');
+    const cameraOverlay = document.getElementById('cameraOverlay');
+    const statusBar = document.getElementById('statusBar');
+    const errorMsg = document.getElementById('errorMsg');
+
+    function hideAll() {
+        [startPage, teacherPanel, studentPanel].forEach(el => el.classList.add('hidden'));
+        examScreen.classList.remove('active'); examScreen.style.display = 'none'; statusBar.classList.remove('active');
+    }
+    function backToStart() { 
+        hideAll(); startPage.classList.remove('hidden'); showStep(1);
+        ['studentName','studentEmail','studentGrade'].forEach(id => document.getElementById(id).value = '');
+        meetOpened = false;
+    }
+    function showTeacherPanel() { hideAll(); teacherPanel.classList.remove('hidden'); document.getElementById('teacherInstructions').classList.remove('hidden'); document.getElementById('teacherSettings').classList.add('hidden'); }
+    function showStudentPanel() { hideAll(); studentPanel.classList.remove('hidden'); showStep(1); }
+    function showStep(n) {
+        [1,2,3,4,5].forEach(i => {
+            document.getElementById(`step${i}`).classList.toggle('hidden', i !== n);
+            document.getElementById(`step${i}Ind`).classList.toggle('active', i <= n);
+        });
+        errorMsg.classList.remove('show');
+    }
+
+    function showTeacherSettings() {
+        document.getElementById('teacherInstructions').classList.add('hidden');
+        document.getElementById('teacherSettings').classList.remove('hidden');
+    }
+
+    document.getElementById('adminLoginBtn')?.addEventListener('click', () => {
+        const dept = document.getElementById('departmentSelect').value;
+        const pass = document.getElementById('departmentPassword').value.trim();
+        if (!dept) { document.getElementById('adminLoginError').textContent = "Select a department."; document.getElementById('adminLoginError').classList.add('show'); return; }
+        if (!pass) { document.getElementById('adminLoginError').textContent = "Enter department password."; document.getElementById('adminLoginError').classList.add('show'); return; }
+        if (DEPARTMENT_PASSWORDS[dept] === pass) {
+            currentDepartment = DEPARTMENT_PASSWORDS[dept];
+            document.getElementById('adminLoginError').classList.remove('show');
+            document.getElementById('settingsForm').classList.remove('hidden');
+            document.getElementById('adminLoginBtn').style.display = 'none';
+            document.getElementById('departmentSelect').style.display = 'none';
+            document.getElementById('departmentPassword').style.display = 'none';
+            loadAdminSettings();
+        } else {
+            document.getElementById('adminLoginError').textContent = "❌ Incorrect password.";
+            document.getElementById('adminLoginError').classList.add('show');
+        }
+    });
+
+    function loadAdminSettings() {
+        const saved = sessionStorage.getItem('examConfig_' + currentDepartment);
+        if (saved) {
+            const s = JSON.parse(saved);
+            document.getElementById('admTitle').value = s.title;
+            document.getElementById('admMeet').value = s.meet;
+            document.getElementById('admForm').value = s.form;
+            document.getElementById('admDuration').value = s.duration;
+            document.getElementById('admMaxViolations').value = s.maxViolations;
+        }
+    }
+
+    document.getElementById('generateLinkBtn')?.addEventListener('click', () => {
+        const newConfig = {
+            title: document.getElementById('admTitle').value, meet: document.getElementById('admMeet').value,
+            form: document.getElementById('admForm').value, duration: parseInt(document.getElementById('admDuration').value),
+            maxViolations: parseInt(document.getElementById('admMaxViolations').value), domain: config.domain, department: currentDepartment
+        };
+        sessionStorage.setItem('examConfig_' + currentDepartment, JSON.stringify(newConfig));
+        const encoded = btoa(JSON.stringify(newConfig));
+        document.getElementById('studentLinkBox').textContent = `${window.location.origin}${window.location.pathname}?mode=student&exam=${encoded}`;
+        document.getElementById('linkResult').classList.remove('hidden');
+    });
+
+    document.getElementById('copyLinkBtn')?.addEventListener('click', () => {
+        navigator.clipboard.writeText(document.getElementById('studentLinkBox').textContent);
+        alert('✅ Link copied!');
+    });
+
+    // ✅ FIXED: Case-insensitive unblocking for numeric IDs
+    document.getElementById('resetStudentBtn')?.addEventListener('click', () => {
+        const emailInput = document.getElementById('resetEmailInput').value.trim().toLowerCase();
+        const msgEl = document.getElementById('resetMsg');
+        
+        if (!emailInput) { 
+            msgEl.textContent = "❌ Please enter student email (e.g., 3731@ajyalfalah.sch.ae)"; 
+            msgEl.style.color="#d32f2f"; msgEl.style.display="block"; return; 
+        }
+        
+        let attempts = JSON.parse(localStorage.getItem('attemptedEmails') || '[]');
+        const idx = attempts.findIndex(e => e.toLowerCase() === emailInput);
+        
+        if (idx > -1) {
+            attempts.splice(idx, 1);
+            localStorage.setItem('attemptedEmails', JSON.stringify(attempts));
+            msgEl.textContent = `✅ Success!\n${emailInput} has been unblocked.\n${attempts.length} students still blocked.`; 
+            msgEl.style.color="#388e3c"; msgEl.style.display="block"; msgEl.style.whiteSpace = "pre-line";
+            document.getElementById('resetEmailInput').value = "";
+        } else {
+            let debugMsg = `⚠️ Email not found in blocked list.\n\n`;
+            debugMsg += `🔍 You entered: ${emailInput}\n`;
+            debugMsg += `📊 Total blocked: ${attempts.length} students\n\n`;
+            if (attempts.length > 0) {
+                debugMsg += `📋 Sample blocked emails:\n`;
+                attempts.slice(0, 10).forEach((e, i) => debugMsg += `  ${i+1}. ${e}\n`);
+                if (attempts.length > 10) debugMsg += `  ... and ${attempts.length - 10} more`;
+            } else {
+                debugMsg += `✅ No students currently blocked!`;
+            }
+            msgEl.textContent = debugMsg; 
+            msgEl.style.color="#f57c00"; msgEl.style.display="block"; msgEl.style.whiteSpace = "pre-line";
+        }
+    });
+
+    function clearAllAttempts() {
+        if (confirm(`⚠️ WARNING: This will unblock ALL ${JSON.parse(localStorage.getItem('attemptedEmails') || '[]').length} students.\n\nContinue?`)) {
+            localStorage.removeItem('attemptedEmails');
+            alert('✅ All student attempts cleared!');
+        }
+    }
+
+    document.getElementById('toStep2Btn')?.addEventListener('click', () => {
+        const n = document.getElementById('studentName').value.trim();
+        const e = document.getElementById('studentEmail').value.trim().toLowerCase();
+        const g = document.getElementById('studentGrade').value.trim();
+        if (!n || !e || !g) { showError("❌ All fields required."); return; }
+        if (!e.endsWith(config.domain)) { showError(`❌ Use ${config.domain} email.`); return; }
+        if (JSON.parse(localStorage.getItem('attemptedEmails') || '[]').includes(e)) { showError("❌ Already attempted."); return; }
+        studentData = { name: n, email: e, grade: g };
+        document.getElementById('displayName').textContent = n;
+        document.getElementById('displayEmail').textContent = e;
+        document.getElementById('displayGrade').textContent = g;
+        showStep(2);
+    });
+
+    document.getElementById('joinMeetBtn')?.addEventListener('click', () => {
+        if (!config.meet) { showError("❌ Meet link missing."); return; }
+        window.open(config.meet, '_blank', 'noopener,noreferrer');
+        meetOpened = true;
+        setTimeout(() => {
+            document.getElementById('meetConfirm').classList.remove('hidden');
+            document.getElementById('joinMeetBtn').disabled = true;
+            document.getElementById('joinMeetBtn').textContent = '✓ Meet Opened';
+        }, 2000);
+    });
+
+    document.getElementById('toStep3Btn')?.addEventListener('click', () => {
+        document.getElementById('maxViolationsDisplay').textContent = config.maxViolations;
+        showStep(3);
+    });
+    document.getElementById('toStep4Btn')?.addEventListener('click', () => showStep(4));
+
+    document.getElementById('enableCameraBtn')?.addEventListener('click', async () => {
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 320, height: 240 }, audio: false });
+            const preview = document.getElementById('cameraPreview');
+            preview.innerHTML = '';
+            const vid = document.createElement('video');
+            vid.srcObject = cameraStream; vid.autoplay = true; vid.muted = true; vid.playsInline = true;
+            vid.style.cssText = 'width:100%; height:100%; object-fit:cover; border-radius:12px;';
+            preview.appendChild(vid);
+            document.getElementById('cameraStatus').textContent = '✅ Camera active & ready';
+            document.getElementById('cameraStatus').style.color = 'var(--success)';
+            document.getElementById('cameraStatus').style.display = 'block';
+            document.getElementById('enableCameraBtn').disabled = true;
+            document.getElementById('enableCameraBtn').textContent = '✓ Camera Enabled';
+            document.getElementById('toStep5Btn').classList.remove('hidden');
+        } catch (err) {
+            showError("❌ Camera denied.");
+            document.getElementById('cameraStatus').textContent = '❌ Failed';
+            document.getElementById('cameraStatus').style.color = 'var(--danger)';
+            document.getElementById('cameraStatus').style.display = 'block';
+        }
+    });
+
+    document.getElementById('toStep5Btn')?.addEventListener('click', () => showStep(5));
+
+    document.getElementById('startExamBtn')?.addEventListener('click', async () => {
+        if (!cameraStream) { showError("❌ Enable camera first."); return; }
+        if (!config.form || !config.meet) { showError("❌ Config missing."); return; }
+        
+        const att = JSON.parse(localStorage.getItem('attemptedEmails') || '[]');
+        att.push(studentData.email);
+        localStorage.setItem('attemptedEmails', JSON.stringify(att));
+        hintUsed = false;
+        
+        document.documentElement.requestFullscreen?.().catch(() => {});
+        
+        hideAll();
+        examScreen.style.display = 'flex';
+        setTimeout(() => examScreen.classList.add('active'), 10);
+        cameraOverlay.classList.add('active'); statusBar.classList.add('active');
+        document.getElementById('submitExamBtn').style.display = 'block';
+        document.getElementById('hintBtn').style.display = 'block';
+        
+        document.getElementById('examCameraVideo').srcObject = cameraStream;
+        document.getElementById('examStudentName').textContent = studentData.name;
+        document.getElementById('examViolationBadge').textContent = `⚠️ Violations: 0/${config.maxViolations}`;
+        
+        loadMeet();
+        loadExam(); 
+        startExam();
+    });
+
+    function loadMeet() {
+        const iframe = document.getElementById('meetIframe');
+        const meetError = document.getElementById('meetError');
+        let meetUrl = config.meet;
+        if (!meetUrl.includes('hl=')) meetUrl += (meetUrl.includes('?') ? '&' : '?') + 'hl=en';
+        if (!meetUrl.includes('authuser')) meetUrl += '&authuser=0';
+        iframe.src = meetUrl;
+        meetError.style.display = 'block';
+        setTimeout(() => meetError.style.display = 'none', 10000);
+        iframe.onerror = () => { meetError.innerHTML = '⚠️ Meet failed to load<br><small>Check connection</small>'; meetError.style.display = 'block'; };
+        document.getElementById('meetContainer').style.display = 'flex';
+    }
+
+    function loadExam() {
+        const c = document.getElementById('quizContainer');
+        let url = config.form + (config.form.includes('?') ? '&' : '?') + 'embedded=true';
+        const iframe = document.createElement('iframe');
+        iframe.src = url; iframe.style.cssText = 'width:100%; height:100%; border:none;';
+        iframe.onload = () => { const sp = c.querySelector('.loading-spinner'); if(sp) sp.remove(); };
+        c.innerHTML = ''; c.appendChild(iframe);
+    }
+
+    function startExam() {
+        examActive = true; startTime = Date.now(); violations = 0;
+        startTimer(); setupSecurity();
+    }
+
+    function startTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            if (!examActive || helpMode) return;
+            const rem = (config.duration * 60) - (Math.floor((Date.now() - startTime) / 1000) - elapsedBeforePause);
+            if (rem <= 0) { endExam("⏱️ Time's up!"); return; }
+            const t = `${String(Math.floor(rem/60)).padStart(2,'0')}:${String(rem%60).padStart(2,'0')}`;
+            document.getElementById('examTimer').textContent = t;
+            document.getElementById('examTimerBar').textContent = t;
+        }, 1000);
+    }
+
+    document.getElementById('hintBtn')?.addEventListener('click', triggerHelp);
+    function triggerHelp() {
+        if (hintUsed) { alert("❌ Hint already used."); return; }
+        if (helpMode || !examActive) return;
+        if (!confirm("Timer pauses. 120s to ask teacher. Return to resume?")) return;
+        hintUsed = true;
+        const btn = document.getElementById('hintBtn');
+        btn.style.background = '#6c757d'; btn.textContent = '✓ Used'; btn.disabled = true;
+        helpMode = true; examActive = false; clearInterval(timerInterval);
+        helpOverlay.classList.add('active');
+        let s = 120; document.getElementById('helpCountdown').textContent = s;
+        helpInterval = setInterval(() => {
+            s--; document.getElementById('helpCountdown').textContent = s;
+            if (s <= 0) { clearInterval(helpInterval); endExam("⏱️ Hint timed out."); }
+        }, 1000);
+    }
+
+    document.getElementById('resumeBtn')?.addEventListener('click', resumeFromHelp);
+    helpOverlay?.addEventListener('click', e => { if(e.target === helpOverlay) resumeFromHelp(); });
+    function resumeFromHelp() {
+        if (!helpMode) return; 
+        clearInterval(helpInterval); helpMode = false; examActive = true;
+        helpOverlay.classList.remove('active');
+        document.documentElement.requestFullscreen?.().catch(() => {});
+        startTimer();
+    }
+
+    document.getElementById('submitExamBtn')?.addEventListener('click', () => {
+        if (confirm("Submit exam?")) endExam("✅ Submitted!");
+    });
+
+    function setupSecurity() {
+        let reenteringFs = false;
+        document.addEventListener('fullscreenchange', () => {
+            if (!examActive || helpMode) return;
+            if (!document.fullscreenElement && !reenteringFs) {
+                triggerViolation('EXITING FULLSCREEN BLOCKED');
+                reenteringFs = true;
+                document.documentElement.requestFullscreen?.().catch(() => { reenteringFs = false; });
+                setTimeout(() => reenteringFs = false, 1500);
+            } else if (document.fullscreenElement) reenteringFs = false;
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (!examActive || helpMode) return;
+            if (document.hidden) triggerViolation('SWITCHING TABS/APPS BLOCKED');
+            else if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
+        });
+        setInterval(() => {
+            if (examActive && !helpMode && !document.fullscreenElement && !document.hidden && !reenteringFs) {
+                document.documentElement.requestFullscreen?.().catch(() => {});
+            }
+        }, 3000);
+    }
+
+    function triggerViolation(reason) {
+        violations++;
+        document.getElementById('examViolationBadge').textContent = `⚠️ Violations: ${violations}/${config.maxViolations}`;
+        if (violations >= config.maxViolations) { endExam(`🚫 Max violations (${config.maxViolations}). Terminated.`); return; }
+        document.getElementById('violationMsg').textContent = reason;
+        violationOverlay.classList.add('active');
+        let c = 5; document.getElementById('violationCountdown').textContent = c;
+        const t = setInterval(() => {
+            c--; document.getElementById('violationCountdown').textContent = c;
+            if (c <= 0) { clearInterval(t); violationOverlay.classList.remove('active'); }
+        }, 1000);
+    }
+
+    function endExam(msg) {
+        examActive = false; helpMode = false; clearInterval(timerInterval); clearInterval(helpInterval);
+        if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+        cameraOverlay.classList.remove('active');
+        document.exitFullscreen?.().catch(()=>{});
+        examScreen.classList.remove('active'); setTimeout(() => examScreen.style.display = 'none', 300);
+        hideAll(); startPage.classList.remove('hidden');
+        setTimeout(() => alert(msg + "\n\nClose tab."), 500);
+    }
+
+    function showError(msg) { errorMsg.textContent = msg; errorMsg.classList.add('show'); setTimeout(() => errorMsg.classList.remove('show'), 5000); }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mode') === 'student' && urlParams.get('exam')) {
+        try { config = JSON.parse(atob(urlParams.get('exam'))); showStudentPanel(); }
+        catch(e) { showError("❌ Invalid link."); }
+    }
+</script>
+</body>
+</html>
